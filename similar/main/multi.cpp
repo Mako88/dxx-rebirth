@@ -4622,7 +4622,19 @@ void multi_send_bounty( void )
 static void multi_do_bounty( const ubyte *buf )
 {
 	if ( multi_i_am_master() )
+	{
+		/* Select a random number */
+		int n = d_rand() % MAX_PLAYERS;
+		
+		/* Make sure they're valid: Don't check against kill flags,
+		* just in case everyone's dead! */
+		while( !Players[n].connected )
+			n = d_rand() % MAX_PLAYERS;
+		
+		/* Select new target  - it will be sent later when we're done with this function */
+		multi_new_bounty_target( n );
 		return;
+	}
 	
 	multi_new_bounty_target( buf[1] );
 }
@@ -4636,6 +4648,8 @@ void multi_new_bounty_target(const playernum_t pnum )
 	/* Set the target */
 	Bounty_target = pnum;
 	
+	overlord_bounty();
+	
 	/* Send a message */
 	HUD_init_message( HM_MULTI, "%c%c%s is the new target!", CC_COLOR,
 		BM_XRGB( player_rgb[Bounty_target].r, player_rgb[Bounty_target].g, player_rgb[Bounty_target].b ),
@@ -4646,6 +4660,13 @@ void multi_new_bounty_target(const playernum_t pnum )
 #elif defined(DXX_BUILD_DESCENT_II)
 	digi_play_sample( SOUND_BUDDY_MET_GOAL, F1_0 * 2 );
 #endif
+}
+
+void overlord_bounty()
+{
+	Players[Bounty_target].flags |= PLAYER_FLAGS_CLOAKED;
+	Players[Bounty_target].cloak_time = GameTime64;
+	multi_send_cloak();
 }
 
 static void multi_do_save_game(const ubyte *buf)
